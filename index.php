@@ -3,7 +3,7 @@
 
 <?php
 
-print "welcome to Aakash Kathunia web server for testing";
+print "welcome to Aakash web server for testing";
 
 
 print `ifconfig`;
