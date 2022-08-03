@@ -1,0 +1,95 @@
+ - name: Running block for backup
+   block:
+    - shell: date | awk -F" " '{print $4}'
+      register: time1
+    - set_fact:
+           start_time: "{{time1.stdout}}"
+
+    - name: Run ncs-backup command
+      shell: ncs-backup 
+      register: out1
+      become: true
+    - debug:
+        msg: "{{out1.stdout}}"
+    - shell:  date "+%F %H:%M:%S"
+      register: end
+    - set_fact:
+            backup_time: "{{end.stdout}}"
+    - shell: date | awk -F" " '{print $4}'
+      register: time2
+    - set_fact:
+           end_time: "{{time2.stdout}}"
+
+    - shell: echo "{{out1.stdout}}" | awk '{print $3}'
+      register: out2
+    - set_fact:
+          Backup_file: "{{out2.stdout}}"
+   
+    - shell: ls -lrth {{Backup_file}}  | awk -F" " '{print $5}'
+      register: size
+      args:
+          chdir: "/var/opt/ncs/backups/"
+    - set_fact:
+            SIZE: "{{size.stdout}}"
+    - debug:
+          msg: 
+             - "Backup file is {{Backup_file}}"
+             - "file size is {{SIZE}}"
+    - name: time calculation of backup
+      block:
+          - shell: |
+                  SEC1=`date +%s -d {{start_time}}`
+                  SEC2=`date +%s -d {{end_time}}`
+                  DIFFSEC=`expr ${SEC2} - ${SEC1}`
+                  echo `date +%H:%M:%S -ud @${DIFFSEC}`
+            register: time
+          - debug:
+                 msg: "{{time.stdout}}"
+          - set_fact:
+                  total_time: "{{time.stdout}}"
+    - shell: hostname -I | cut -d' ' -f1
+      register: output
+    - set_fact:
+            HOST: "{{output.stdout}}"
+    - name: Write results to logfile log_VERSION file
+      block:
+         - name: Create Directory {{LOG_DIR}}/logs_{{HOST}}
+           file:
+               path: "{{LOG_DIR}}/logs_{{HOST}}"
+               state: directory
+         - set_fact:
+               LOG_DIRR: "{{LOG_DIR}}/logs_{{HOST}}"
+         - shell: |
+               echo "BACKUP_FILE: {{Backup_file}}" > {{LOG_DIRR}}/log_backup_file.json
+               echo "SIZE: {{SIZE}}" >> {{LOG_DIRR}}/log_backup_file.json
+               echo "LAST_BACKUP_TIME: {{backup_time}}" >> {{LOG_DIRR}}/log_backup_file.json
+               echo "COMLETION_TIME: {{total_time}}" >> {{LOG_DIRR}}/log_backup_file.json
+      delegate_to: localhost
+   when: ( mode == 'backup' )
+
+ - name: Running block for restore
+   block:
+      - name: Stop NCS process to run restore
+        shell: ncs --stop >> /tmp/aNSOble.log
+        environment:
+              PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+        ignore_errors: yes
+        become: true
+      - name: Pick the latest Backup file, Please restore manually in case of particular backup file restoration
+        shell: ls -rt /var/opt/ncs/backups/ | tail -n 1
+        register: out3
+      - set_fact:
+             Backup_file: "{{out3.stdout}}"
+      - name: run restore command
+        shell:  yes | ncs-backup --restore {{Backup_file}}
+        register: out4
+        ignore_errors: true
+        become: true
+      - debug:
+          msg: "{{out4.stdout}}"
+      - name: Start NSO service
+        shell: |
+           source /etc/profile.d/ncs.sh
+           /etc/init.d/ncs start >> /tmp/aNSOble.log 2>&1
+        become: true
+   when: ( mode == 'restore' ) 

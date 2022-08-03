@@ -1,0 +1,19 @@
+      - name: Stop NSO
+        include_role:
+               name: stop_NSO
+      - name: Fetch NCS_DIR
+        shell: /bin/bash -l -c 'env' | grep NCS_DIR | awk -F "=" '{print $2}'
+        register: NCS_DIR
+      - set_fact:
+              NCS_DIR: "{{NCS_DIR.stdout}}"
+      - set_fact:
+              CMD: "{{NCS_DIR}}/bin/ncs --cdb-compact {{CDB_DIR}}"
+      - name: Run CDB compact command
+        shell: "{{CMD}}"
+        register: out1
+        become: true
+      - debug:
+          msg: "{{out1.stdout}}"
+      - name: Start NSO service
+        include_role: 
+               name: start_NSO

@@ -1,0 +1,13 @@
+
+ - name: Run device check sync command
+   shell: |
+      echo "devices device {{device}} check-sync" | ncs_cli -C 
+   register: out1
+ - debug:
+      msg: "{{out1.stdout}}"
+ - name: Run device sync from command
+   shell: |
+      echo "devices device {{device}} sync-from" | ncs_cli -C
+   register: out2
+ - debug:
+      msg: "{{out2.stdout}}"

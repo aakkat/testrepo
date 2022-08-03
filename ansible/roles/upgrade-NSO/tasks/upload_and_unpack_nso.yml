@@ -1,0 +1,63 @@
+
+  - name: Download NSO install file (Remote copy)
+    get_url:
+      url: "{{ NSOImageLocation }}" 
+      dest: /tmp/NSO.bin
+      mode: '640'
+    when: NSOCopyType == 'remote'
+
+  - name: Copy NSO install file (Local copy)
+    copy:
+      src: "{{ NSOImageLocation }}" 
+      dest: /tmp/NSO.bin
+      mode: '740'
+    when: NSOCopyType == 'local'
+    become: yes
+
+  - name: Check for signed bin
+    set_fact:
+     signed_bin: '{{"signed.bin" in NSOImageLocation }}'
+  
+  - debug:
+     msg: "Signed bin present: {{signed_bin}}"
+  
+  - name: Unpack NSO install file
+    shell: sh /tmp/NSO.bin --system-install --non-interactive --install-dir  /opt/ncs/  >> /tmp/aNSOble.log 2>&1
+    args:
+      chdir: /tmp/
+    become: yes
+    when: 'not signed_bin'
+
+  - name: unpack signed bin then unpack install file
+    block:
+    - name: Creates /tmp/unpack/
+      file:
+        path: /tmp/unpack/
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: 0775
+      become: yes
+
+    - name: remove unpack contents
+      shell: rm /tmp/unpack/*
+      become: yes
+
+    - name: move bin to folder
+      shell: cp /tmp/NSO.bin ./unpack >> /tmp/aNSOble.log 2>&1
+      args:
+        chdir: /tmp/
+      become: yes
+
+    - name: Unpack signed bin
+      shell: sh NSO.bin >> /tmp/aNSOble.log 2>&1
+      args:
+        chdir: "/tmp/unpack/"
+      become: yes
+
+    - name: Unpack NSO install file
+      shell: sh *.installer.bin --system-install --non-interactive --install-dir  /opt/ncs/  >> /tmp/aNSOble.log 2>&1
+      args:
+        chdir: /tmp/unpack/
+      become: yes
+    when: 'signed_bin'

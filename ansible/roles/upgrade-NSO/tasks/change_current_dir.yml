@@ -1,0 +1,21 @@
+
+    - name: Check again for upgrade version directory in /opt/ncs/
+      shell: ls -d ncs-{{ ncs_upgrade_version }}
+      args:
+        chdir: /opt/ncs/
+      register: new_version_dir_name
+    - debug:
+       msg: 'Warning no new ncs version {{ ncs_upgrade_version }} found'
+      when: new_version_dir_name is defined and not (new_version_dir_name.stdout_lines|length>0)
+    - name: remove current pointer
+      shell: rm -rf ./current
+      args:
+        chdir: /opt/ncs/
+      become: yes
+      when: new_version_dir_name is defined and (new_version_dir_name.stdout_lines|length>0)
+    - name: add new current pointer to upgraded version
+      shell: ln -sf ./{{new_version_dir_name.stdout}} current
+      args:
+        chdir: /opt/ncs/
+      become: yes
+      when: new_version_dir_name is defined and (new_version_dir_name.stdout_lines|length>0)

@@ -1,0 +1,24 @@
+<high-availability xmlns="http://tail-f.com/ns/ncs">
+               <token>{{ HAToken }}</token>
+               <ha-node>
+                 <id>master</id>
+                 <address>{{ PrimaryIP }}</address>
+                 <nominal-role>master</nominal-role>
+               </ha-node>
+               <ha-node>
+                 <id>secondary</id>
+                 <address>{{ SecondaryIP }}</address>
+                 <nominal-role>slave</nominal-role>
+               </ha-node>
+               <settings>
+                 <enable-failover>true</enable-failover>
+                 <reconnect-slaves>true</reconnect-slaves>
+                 <start-up>
+                   <assume-nominal-role>true</assume-nominal-role>
+                   <join-ha>true</join-ha>
+                 </start-up>
+                 <reconnect-interval>{{ HAInterval }}</reconnect-interval>
+                 <reconnect-attempts>{{ HAFailureLimit }}</reconnect-attempts>
+               </settings>
+             </high-availability>
+

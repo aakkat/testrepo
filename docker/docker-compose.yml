@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  ansible:
+    build: ./
+    image: ansible
+    networks:
+      - main
+    volumes:
+      - ../ansible:/etc/ansible
+    environment:
+      - DEBUG=true
+    tty: true
+    env_file:
+      - env
+networks:
+  main:

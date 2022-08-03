@@ -1,0 +1,39 @@
+- hosts: ubuntu
+  gather_facts: no
+  connection: local
+  vars_files:
+    - setup_data.yml
+    - setup_data_secure.yml
+  roles:
+    - { role: Ubuntu_vcenter_deploy, tags: [ 'install-vm' ] , when: VM_INSTALL }
+- hosts: ubuntu
+  vars_files:
+    - setup_data.yml
+    - setup_data_secure.yml
+  vars:
+     HOST: "{{dest_host}}"
+     USER: "{{dest_user}}"
+     PASS: "{{dest_pass}}"
+     mode: "{{mode}}"
+     device: "{{device}}"
+     config: "{{config}}"
+     NEW_NEDs: "{{NEW_NEDs}}"
+  environment:
+        PATH: "{{ ansible_env.PATH }}:/opt/ncs/current/bin" 
+  roles:
+    - { role: install-linux-packages, tags: [ 'install-linux-packages' ] }
+    - { role: install-NSO, tags: [ 'install-NSO' ] , when: NSOInstallType is defined }
+    - { role: install-NEDs, tags: [ 'install-NEDs' ] , when: NEDs is defined }
+    - { role: install-repository-packages, tags: [ 'install-repository-packages' ] , when: remote_packages is defined}
+    - { role: setup-netsim, tags: [ 'setup-netsim' ] , when: NetsimDevices is defined }
+    - { role: setup-HA, tags: [ 'setup-HA' ] , when: SetupHA }
+    - { role: data_collector, tags: [ 'data_collector' ] }
+    - { role: device_check_sync_from, tags: [ 'device_check_sync_from' ] }
+    - { role: enable_disable_HA, tags: [ 'enable_disable_HA' ] }
+    - { role: backup_restore_NSO, tags: [ 'backup_restore_NSO' ] }
+    - { role: compact_CDB, tags: [ 'compact_CDB' ] }
+    - { role: device_migration, tags: [ 'device_migration' ] }
+    - { role: config_NSO, tags: [ 'config_NSO' ] }
+    - { role: copy_master_to_slave, tags: [ 'copy_master_to_slave' ] }
+    - { role: copy_ncs_files, tags: [ 'copy_ncs_files' ] }
+    - { role: copy_packages, tags: [ 'copy_packages' ] }

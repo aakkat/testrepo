@@ -1,0 +1,18 @@
+#Server credentials and sudo password
+ansible_user: ciscoadmin
+ansible_password: 41Ciscoasps12#$
+ansible_become_password: 41Ciscoasps12#$
+
+#NEDs Repo Credentials
+NEDsRepoUser: coangel
+NEDsRepoPass: Password
+
+#GIT User Access
+GITUser: coangel
+GITKeyPass: Password
+
+#Vcenter for install
+vcenter_hostname: 172.18.176.27
+vcenter_username: Administrator@vsphere.local
+vcenter_password: CAaaS123!!
+vcenter_validate_certs: no

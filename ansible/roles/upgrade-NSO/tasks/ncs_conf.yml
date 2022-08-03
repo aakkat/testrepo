@@ -1,0 +1,22 @@
+
+  - name: Store new ncs.conf into ./configs/HOSTNAME/etc/ncs/ncs.conf
+    ansible.builtin.fetch:
+      src: /opt/ncs/current/etc/ncs/ncs.conf
+      dest: /tmp/configs
+    become: yes
+    register: filename
+
+  - name: Run python script on downloaded ncs.conf
+    local_action: command ./parse_configs.py --filepath {{filename.dest}}
+    
+  - name: Copy local ncs conf file to remote
+    copy:
+      src: "{{filename.dest}}" 
+      dest: /etc/ncs/ncs.conf
+      mode: '755'
+    become: yes
+
+  - name: Remove file (delete file)
+    ansible.builtin.file:
+      path: "{{filename.dest}}"
+      state: absent

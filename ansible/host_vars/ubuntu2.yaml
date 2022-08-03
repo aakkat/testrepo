@@ -1,0 +1,28 @@
+vmware_datacenter: CAaaS
+vmware_datastore: S1datastore
+vmware_folder: CAaaS/vm/
+ova_url: https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.ova
+ova_file: /ova/ubuntu.ova
+esxi_hostname: 172.18.176.21
+vm_name: "BHARTI_CFS_Standby"
+hardware:
+  num_cpus: 4
+  memory_mb: 16384
+annotation: 'sample VM based on Ubuntu Cloud Image'
+# this avoids excessive syslog messages from multipathd under Ubuntu 20.04
+# customvalues:
+#   - key: disk.EnableUUID
+#     value: 'TRUE'
+disk:
+  - size_gb: 100
+    datastore: S2datastore
+    scsi_controller: 0
+    unit_number: 0
+    type: thin
+static_ip:
+  ipv4: 172.18.176.43
+  netmask: 25
+  gateway: 172.18.176.1
+  dns_servers: [64.102.6.247, 8.8.4.4]
+  dns_search:
+  - your.domain

@@ -1,0 +1,26 @@
+- name: Find /var/opt/ncs/packages/ all directories
+  find:
+    paths: /var/opt/ncs/packages/
+    recurse: no
+    patterns: '.*\.tar.*'
+    use_regex: true
+    file_type: file
+  register: package_directories
+
+- name: extract all tar files
+  shell: tar -xzvf {{ item.path }}
+  args:
+    chdir: "/var/opt/ncs/packages"
+    warn: false
+  environment:
+    NCS_DIR: /opt/ncs/current
+  loop: "{{ package_directories.files }}"
+  become: yes
+
+- name: remove all tar files
+  shell: rm {{ item.path }}
+  args:
+    chdir: "/var/opt/ncs/packages"
+    warn: false
+  loop: "{{ package_directories.files }}"
+  become: yes

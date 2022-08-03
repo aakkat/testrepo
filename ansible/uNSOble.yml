@@ -1,0 +1,6 @@
+- hosts: servers
+  vars_files:
+    - 'setup_data.yml'
+    - 'setup_data_secure.yml'
+  roles:
+    - { role: uninstall-NSO, tags: [ 'uninstall-NSO' ] }

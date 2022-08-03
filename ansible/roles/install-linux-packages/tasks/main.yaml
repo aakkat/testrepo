@@ -1,0 +1,28 @@
+- name: set logfile permissions
+  file:
+    path: /tmp/aNSOble.log
+    state: touch
+    mode: 0777
+  become: yes
+
+- name: Wait for any possibly running unattended upgrade to finish
+  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+  become: true
+  
+- name: Update apt cache
+  apt:
+    update-cache: true
+  when: ansible_pkg_mgr == 'apt'
+  become: true
+
+- name: Installing Linux Packages
+  package:
+    name: "{{ item }}" 
+    state: present
+  become: true
+  loop: "{{ linuxPackages }}"
+  when: linuxPackages is defined
+
+- name: Install docker
+  include_tasks: docker_install.yaml
+  when: docker_install

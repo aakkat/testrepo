@@ -1,0 +1,43 @@
+       - name: HA state status
+         shell: |
+            echo "show ncs-state ha | display json" | ncs_cli -C | grep mode | sed 's/mode/ha-mode/g' | grep ha-mode | awk -F'"ha-mode":' '{print $2}' | awk -F'"' '{print $2}'
+         register: ha
+         ignore_errors: true
+       - debug:
+              msg: "latest is {{ha.stdout}}"
+       - set_fact:
+              HA: "{{ha.stdout|trim}}"
+       - shell: hostname -I | cut -d' ' -f1
+         register: output
+       - set_fact:
+             HOST: "{{output.stdout}}"
+       - name: Write results to logfile log_VERSION file
+         block:
+            - name: Create Directory {{LOG_DIR}}/logs_{{HOST}} 
+              file:
+                 path: "{{LOG_DIR}}/logs_{{HOST}}"
+                 state: directory
+            - set_fact:
+                 LOG_DIRR: "{{LOG_DIR}}/logs_{{HOST}}"
+            - shell: ls {{LOG_DIRR}}/log_VERSION*
+              register: file
+            - set_fact:
+                    FILE: "{{file.stdout}}"
+            - debug:
+                  msg: " file to be update is {{FILE}}"
+            - shell: |
+                  cat {{FILE}} | grep ha-mode | awk -F"ha-mode:" '{print $2}' | awk -F"," '{print $1}'
+              register: out
+            - set_fact:
+                    ha: "{{out.stdout|trim}}"
+            - debug:
+                    msg: "in file it is {{ha}}"
+            - name: sed 's/{{ha}}/{{HA}}/g' {{FILE}}
+              shell: |
+                  sed 's/{{ha}}/{{HA}}/g' {{FILE}}
+              register: output
+            - debug:
+                  msg: "{{output.stdout}}"
+            - shell: echo "{{output.stdout}}" >  {{FILE}}
+              become: true
+         delegate_to: localhost

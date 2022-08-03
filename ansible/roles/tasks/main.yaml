@@ -1,0 +1,6 @@
+
+   - name: Stop NSO
+     shell: ncs --stop >> /tmp/aNSOble.log
+     environment:
+              PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+     become: true

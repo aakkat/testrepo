@@ -1,0 +1,10 @@
+ - name: Show Service packages configuration per package
+   shell:  echo "show running-config services {{item}} | display json" | ncs_cli -C
+   register: output1
+ - block:
+     - shell: echo "{{output1.stdout}}" > {{LOG_DIRR}}/log_service_{{item}}_{{DATE}}.json
+     - name: Data Modification
+       shell: |
+            cat {{LOG_DIRR}}/log_service_{{item}}_{{DATE}}.json | sed -z 's/,/\n/g' > {{LOG_DIRR}}/log1_service_{{item}}_{{DATE}}.json
+            mv  {{LOG_DIRR}}/log1_service_{{item}}_{{DATE}}.json {{LOG_DIRR}}/log_service_{{item}}_{{DATE}}.json
+   delegate_to: localhost

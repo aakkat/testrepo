@@ -1,0 +1,11 @@
+
+  - name: feed input payload to config file  
+    copy:
+      dest: ~/config.xml
+      content: "{{config}}"
+  - name: Load default authgroup
+    shell: ncs_load -l -m ~/config.xml >> /tmp/aNSOble.log 2>&1
+    environment:
+       PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    become: true
+

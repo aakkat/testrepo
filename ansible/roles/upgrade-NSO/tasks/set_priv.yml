@@ -1,0 +1,28 @@
+  - name: Making sure /var/opt/ncs is accessible to all users
+    file:
+      path: /var/opt/ncs
+      state: directory
+      recurse: yes
+      mode: '0755'
+    become: yes
+
+
+  - name: Changing /var/opt/ncs/packages ownership to {{ ansible_user }} user
+    file:
+      path: /var/opt/ncs/packages
+      state: directory
+      recurse: yes
+      mode: '0755'
+      owner: "{{ ansible_user }}"
+      group: ncsadmin
+    become: yes
+
+  - name: Changing /opt/ncs ownership to {{ ansible_user }} user
+    file:
+      path: /opt/ncs
+      state: directory
+      recurse: yes
+      mode: '0755'
+      owner: "{{ ansible_user }}"
+      group: ncsadmin
+    become: yes

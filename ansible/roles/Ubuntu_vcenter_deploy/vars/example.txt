@@ -1,0 +1,36 @@
+vcenter_hostname: 172.18.176.27
+vcenter_username: Administrator@vsphere.local
+vcenter_password: CAaaS123!!
+vcenter_validate_certs: no
+vmware_datacenter: CAaaS_S2 ESXI
+vmware_datastore: S2datastore
+vmware_folder: CAaaS_S2 ESXI/vm/
+ova_url: https://cloud-images.ubuntu.com/releases/bionic/release/ubuntu-18.04-server-cloudimg-amd64.ova
+ova_file: /ova/ubuntu.ova
+vm_name: "Ansible-2"
+guest_user: "cisco"
+guest_pw: CAaaS123!!
+hardware:
+  num_cpus: 4
+  memory_mb: 2048
+annotation: 'sample VM based on Ubuntu Cloud Image'
+# this avoids excessive syslog messages from multipathd under Ubuntu 20.04
+# customvalues:
+#   - key: disk.EnableUUID
+#     value: 'TRUE'
+disk:
+  - size_gb: 20
+    datastore: S2datastore
+    scsi_controller: 0
+    unit_number: 0
+    type: thin
+static_ip:
+  ipv4: 172.18.176.82
+  netmask: 25
+  gateway: 172.18.176.1
+  dns_servers: [8.8.8.8, 8.8.4.4]
+  dns_search:
+  - your.domain
+# ssh_keys:
+#   - ssh-rsa AAAAB3Nz[...]== some-key-name
+password: passw0rd

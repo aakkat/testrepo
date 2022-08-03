@@ -1,0 +1,18 @@
+- hosts: ubuntu
+  vars_files:
+    - setup_data.yml
+    - setup_data_secure.yml
+
+  vars:
+     ncs_upgrade_version: 5.3*
+     nso_installer_name: nso-5.3.6.linux.x86_64.signed.bin
+     NSOCopyType: local
+     #NSOImageLocation: http://www.ovh.net/files/1Mio.dat url if remote version used
+     NSOImageLocation: '{{ playbook_dir }}/files/{{ nso_installer_name }}'
+
+  environment:
+        PATH: "{{ ansible_env.PATH }}:/opt/ncs/current/bin" 
+
+  roles:
+    - { role: upgrade-NSO, tags: [ 'upgrade-NSO' ]  }
+

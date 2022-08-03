@@ -1,0 +1,30 @@
+
+- name: Create NSO admin group
+  group:
+    name: ncsadmin
+    state: present
+  become: true
+
+- name: Adding users to the ncsadmin group
+  user:
+    name: "{{ item }}" 
+    groups: ncsadmin
+    append: yes
+  become: true
+  when: ncsadminUsers is defined 
+  loop: "{{ ncsadminUsers }}"
+
+- name: Create NSO oper group
+  group:
+    name: ncsoper
+    state: present
+  become: true
+
+- name: Adding users to the ncsoper group
+  user:
+    name: "{{ item }}" 
+    groups: ncsoper
+    append: yes
+  become: true
+  when: ncsoperUsers is defined
+  loop: " {{ ncsoperUsers }} "

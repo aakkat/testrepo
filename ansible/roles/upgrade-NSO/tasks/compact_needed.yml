@@ -1,0 +1,25 @@
+  - name: Check for current in /opt/ncs/
+    stat:
+      path: /opt/ncs/current
+    register: current_path
+
+  - name: initial NSO version check
+    block:
+    - name: determine NSO version
+      shell:  ncs --version
+      environment:
+            PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+      register: out1
+    - shell: echo "{{out1.stdout}}" | cut -c1-3
+      register: out2
+    - set_fact:
+        NSO_VER: "{{out2.stdout|float}}"
+    - debug:
+          msg: "version is {{NSO_VER}}"
+    - set_fact:
+            compact_needed: true
+      when: ( NSO_VER|float < 5.0 and ncs_upgrade_version[0]|int >= 5)
+    - debug:
+          msg: "compact is {{compact_needed}}"
+    when: current_path.stat.exists
+  

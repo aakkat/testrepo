@@ -1,0 +1,8 @@
+
+  - name: Start NSO service
+    shell: |
+        source /etc/profile.d/ncs.sh
+        /etc/init.d/ncs start >> /tmp/aNSOble.log 2>&1
+    environment:
+        PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    become: true

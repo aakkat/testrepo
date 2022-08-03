@@ -1,0 +1,5 @@
+ - debug:
+        msg: "copying packages from {{ansible_host}} to {{HOST}}"
+ - shell: |
+       sshpass -p {{PASS}} sudo scp  -o StrictHostKeyChecking=no -r /var/opt/ncs/packages/* {{USER}}@{{HOST}}:/var/opt/ncs/packages/
+

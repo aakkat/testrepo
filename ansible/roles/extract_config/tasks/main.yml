@@ -1,0 +1,11 @@
+ - name: Extract Device {{item}} configuration and save to {{LOG_DIRR}}/log_device_{{item}}_{{DATE}}.cfg
+   shell:  echo "show running-config devices device {{item}} | display xml" | ncs_cli -C
+   register: output1
+ - block:
+     - shell: echo "{{output1.stdout}}" > {{LOG_DIRR}}/log_device_{{item}}_{{DATE}}.cfg
+     - name: Data Modification
+       shell: |
+            cat {{LOG_DIRR}}/log_device_{{item}}_{{DATE}}.cfg | sed -z 's/,/\n/g' > {{LOG_DIRR}}/log1_device_{{item}}_{{DATE}}.cfg
+            mv  {{LOG_DIRR}}/log1_device_{{item}}_{{DATE}}.cfg {{LOG_DIRR}}/log_device_{{item}}_{{DATE}}.cfg
+   delegate_to: localhost
+

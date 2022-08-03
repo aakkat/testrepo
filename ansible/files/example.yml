@@ -1,0 +1,20 @@
+NSO:
+
+
+Filename:  nso-5.4.4.3.linux.x86_64.signed.bin
+
+Variable in setup_data.yml:
+
+nso_installer_name: nso-5.4.4.3.linux.x86_64.signed.bin
+
+NEDS:
+Download file from earth.tail-f.com and upload here
+filename:
+ncs-5.4.4-cisco-ios-6.74.5.signed.bin
+
+variable in setup_data.yml:
+
+NEDs:
+  - name: cisco-ios
+    version: 6.74.5
+    targetNsoVersion: 5.4.4

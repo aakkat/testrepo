@@ -1,0 +1,105 @@
+- name: set logfile permissions
+  file:
+    path: /tmp/aNSOble.log
+    state: touch
+    mode: 0777
+  become: yes
+
+- name: Copy package files (Local copy)
+  copy:
+    src: "{{ playbook_dir }}/files/packages/"
+    dest: /var/opt/ncs/packages/
+    mode: '740'
+  when: remote_packages == False
+  become: yes
+
+- name: get list of all bin files
+  find:
+    paths: /var/opt/ncs/packages/
+    patterns: "^.*?\\.(?:bin)$"
+    use_regex: true
+  register: bin_files
+  when:  remote_packages == false
+
+- name: set logfile permissions
+  file:
+    path: /tmp/package_unload/
+    state: directory
+    mode: 0777
+  become: yes
+
+- name: extract local bin files
+  shell: "{{item.path}}"
+  args:
+    chdir: /tmp/package_unload/
+    warn: false
+  loop: "{{ bin_files.files }}"
+  when: remote_packages == false
+  become: yes
+
+- name: get list of all tar files
+  find:
+    paths: /tmp/package_unload/
+    patterns: "^.*?\\.(?:tar|tar\\.gz)$"
+    use_regex: true
+  register: tar_files
+  when:  remote_packages == false
+
+- name: extract tar local to packages
+  shell: "tar -xzvf {{item.path}} -C /var/opt/ncs/packages/"
+  loop: "{{ tar_files.files }}"
+  when: remote_packages == false
+  become: yes
+
+- name: Cloning the {{ RepositoryBranch }} branch of the repository to /tmp/repo directory
+  git:
+    repo: "https://{{GITUser}}:{{GITKeyPass}}@{{RepositoryURL}}"
+    dest: /tmp/repo
+    version: "{{ RepositoryBranch }}"
+    force: yes
+  when: remote_packages == True
+  become: yes
+
+- name: Copy NSO service packages to /var/opt/ncs/packages
+  shell: cp -r repo/{{ ServicePackagesPath }}/{{ item.name }}/ /var/opt/ncs/packages/ >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+    warn: false
+  loop: "{{ Packages }}"
+  when: remote_packages == True
+  become: yes
+
+- name: Compiling the packages 
+  shell: make clean all -C {{ item.name }}/src/ >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /var/opt/ncs/packages/
+    warn: false
+  become: true
+  when:  remote_packages == True and item.needsCompiling 
+  loop: "{{ Packages }}"
+
+- name: Run compile on packages specified
+  include_role:
+   name: compile_specified_packages
+
+- name: Reloading NSO packages
+  shell: |
+    source /opt/ncs/current/ncsrc
+    echo 'packages reload' | ncs_cli -C -u {{ ansible_user }} >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  become: yes
+
+- name: Copy NSO initial config file
+  copy:
+    src: "{{ NSOInitialConfigLocation }}"
+    dest: /home/{{ ansible_user }}/initialConfig.xml
+    mode: '640'
+  when: remote_packages == True and NSOInitialConfigLocation is defined
+
+- name: Load initial config
+  shell: ncs_load -l -m initialConfig.xml >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  when: remote_packages == True and NSOInitialConfigLocation is defined  
+  become: yes

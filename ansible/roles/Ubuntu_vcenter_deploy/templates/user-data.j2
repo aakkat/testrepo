@@ -1,0 +1,67 @@
+#cloud-config 
+chpasswd: #Change your local password here
+    list: |
+      {{ guest_user }}:{{ guest_pw }}
+    expire: false
+users:
+  - default #Define a default user
+  - name: {{ guest_user }}
+    gecos: {{ guest_user }}
+    lock_passwd: false
+    groups: sudo, users, admin
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+system_info: 
+  default_user:
+    name: default-user
+    lock_passwd: false
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+write_files:
+- path: /etc/netplan/50-cloud-init.yaml
+  content: |
+    network:
+     version: 2
+     ethernets:
+      ens192:
+       addresses: [{{ static_ipv4 }}/{{ netmask }}]
+       gateway4: {{ gateway }}
+       dhcp6: false
+       nameservers:
+{% if dns_search|length > 0 %}
+        search:
+{% for search in dns_search %}
+         - {{ search }}
+{% endfor %}
+{% endif %}
+        addresses:
+{% for server in dns_servers %}
+         - {{ server }}
+{% endfor %}
+       dhcp4: false
+       optional: true
+
+- path: /etc/sysctl.d/60-disable-ipv6.conf
+  owner: root
+  content: |
+    net.ipv6.conf.all.disable_ipv6=1
+    net.ipv6.conf.default.disable_ipv6=1
+runcmd:
+- netplan --debug apply
+- sysctl -w net.ipv6.conf.all.disable_ipv6=1
+- sysctl -w net.ipv6.conf.default.disable_ipv6=1
+- apt-get -y update
+- add-apt-repository universe
+- apt-get -y clean
+- apt-get -y autoremove --purge
+#disable_root: false #Enable root acce
+ssh_pwauth: yes #Use pwd to access (otherwise follow official doc to use ssh-keys)
+package_update: true
+package_upgrade: true
+packages:
+  - python3-pip #Dependency package for cur
+power_state:
+  timeout: 30
+  mode: reboot
+#cloud-config
+
+

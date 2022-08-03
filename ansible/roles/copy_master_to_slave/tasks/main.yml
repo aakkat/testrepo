@@ -1,0 +1,45 @@
+ - name: determine NSO version
+   shell:  ncs --version
+   register: out1
+ - set_fact:
+         NSO_VERSION: "{{out1.stdout}}"
+ - debug:
+       msg: "version is {{NSO_VERSION}}"
+ - shell: echo "{{out1.stdout}}" | cut -c1-3
+   register: output
+ - set_fact:
+         NSO_VER: "{{output.stdout|float}}"
+ - set_fact:
+        HA_CMD: "ha"
+ - set_fact:
+        HA_CMD: "high-availability"
+   when: ( NSO_VER|float >= 5.4 )
+
+ - name: list master and secondary servers using show running-config {{HA_CMD}}
+   shell:  echo "show running-config {{HA_CMD}}" | ncs_cli -C | egrep "address"
+   register: out2
+ - debug:
+       msg: "{{out2.stdout_lines}}"
+ - name: filter out servers
+   shell: echo "{{out2.stdout}}" | awk '{$1=""; print $0}'
+   register: out3
+ - debug:
+      msg: "{{out3.stdout_lines}}"
+ - set_fact:
+       list: "{{out3.stdout_lines}}"
+ - set_fact:
+       master: "{{list[0]}}"
+       secondary: "{{list[1]|trim}}"
+ - debug:
+       msg:
+         - "master is {{master}}"
+         - "secondary is {{secondary}}"
+ - block:
+   - debug:
+        msg: "copying packages and ncs files from {{master}} to {{secondary}}"
+   - shell: |
+         sshpass -p {{PASS}} sudo scp  -o StrictHostKeyChecking=no -r /var/opt/ncs/packages/* {{USER}}@{{secondary}}:/var/opt/ncs/packages/
+         sshpass -p {{PASS}} sudo scp  -o StrictHostKeyChecking=no /etc/ncs/ncs.conf {{USER}}@{{secondary}}:/etc/ncs/
+         sshpass -p {{PASS}} sudo scp   -o StrictHostKeyChecking=no /etc/ncs/ncs.crypto_keys {{USER}}@{{secondary}}:/etc/ncs/
+   when: ( master|trim in ansible_host )
+

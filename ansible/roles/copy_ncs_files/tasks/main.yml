@@ -1,0 +1,6 @@
+   - debug:
+        msg: "copying files from {{ansible_host}} to {{HOST}}"
+   - shell: |
+         sshpass -p {{PASS}} sudo scp  -o StrictHostKeyChecking=no /etc/ncs/ncs.conf {{USER}}@{{HOST}}:/etc/ncs/
+         sshpass -p {{PASS}} sudo scp   -o StrictHostKeyChecking=no /etc/ncs/ncs.crypto_keys {{USER}}@{{HOST}}:/etc/ncs/
+

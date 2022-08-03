@@ -1,0 +1,27 @@
+<high-availability xmlns="http://tail-f.com/ns/ncs">
+               <token>$9$zjwtCW9ecX2x+e4MP6+yzAxVNzRW+99rwopCSVArEhI=</token>
+               <ha-node>
+                 <id>active</id>
+                 <address>172.18.176.41</address>
+                 <nominal-role>master</nominal-role>
+               </ha-node>
+               <ha-node>
+                 <id>standby</id>
+                 <address>172.18.176.40</address>
+                 <nominal-role>slave</nominal-role>
+               </ha-node>
+               <settings>
+                 <enable-failover>true</enable-failover>
+                 <reconnect-slaves>true</reconnect-slaves>
+                 <start-up>
+                   <assume-nominal-role>true</assume-nominal-role>
+                   <join-ha>true</join-ha>
+                 </start-up>
+                 <reconnect-interval>5</reconnect-interval>
+                 <reconnect-attempts>3</reconnect-attempts>
+               </settings>
+             </high-availability>
+             <hcc xmlns="http://cisco.com/pkg/tailf-hcc">
+               <enabled>true</enabled>
+               <vip-address>172.18.176.43</vip-address>
+             </hcc>

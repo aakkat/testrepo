@@ -1,0 +1,132 @@
+## Enter Parent LOG Directory path where you want to save logs of NSO server and APP. logs_$hostname directory would be created under this parent directory.
+LOG_DIR: "/tmp"
+ansible_user: nsoadmin
+CDB_DIR: /var/opt/ncs/cdb/
+HOST: 172.18.176.91
+project_dir: /var/lib/awx/projects
+
+# Set this parameter to True in case to start NSO with start-with-package-reload
+start-with-package-reload: True
+# Install Ubuntu 18.04 onto virtual machine
+# Vcenter credentials must be present in the secure setup and host vars 
+# Must be present for the desired setup, see example.txt in host vars
+
+VM_INSTALL: true
+docker_install: true
+#List of linux packages to install
+#This is a common base for Ubuntu:
+linuxPackages: ['git', 'make', 'wget', 'python-minimal', 'openjdk-8-jdk', 'ant', 'xsltproc', 'iputils-arping', 'netplan.io'] 
+#This is a common base for CentOS/RHEL:
+#linuxPackages: ['git', 'make', 'wget', 'python2', 'java', 'ant', 'libxslt', 'iputils'] 
+
+#Type of copy for the NSO install file, can be local or remote
+#NSOCopyType: remote
+NSOCopyType: local
+#URL/path (Depending on the NSOCopyType) from which the NSO install file should be downloaded
+#NSOImageLocation: http://www.ovh.net/files/1Mio.dat 
+NSOImageLocation: '{{project_dir}}/{{ nso_installer_name }}'
+link_path: '/opt/ncs/current'
+
+
+#Type of copy for the NED install files, can be local or remote
+#NEDCopyType: remote
+NEDCopyType: local
+#URL/path (Depending on the NEDCopyType) from which the NSO install file should be downloaded
+#NSOImageLocation: http://www.ovh.net/files/1Mio.dat 
+NEDfileLocation: '{{ playbook_dir }}/files/'
+
+
+#NSO install type, can be system or local
+#Omit if you want NSO install to be skipped
+NSOInstallType: system
+
+#List of users to add to ncsadmin group
+ncsadminUsers: ['{{ ansible_user }}', root]
+
+#List of users to add to the ncsoper group
+#ncsoperUsers: ['test']
+
+#NSO default authgroup username and password
+DfltAuthUser: admin
+DfltAuthPass: admin 
+
+# vars file for nso_install
+# nso_install_dir: NSO_FILES
+# nso_run_dir: ncs-run
+nso_installer_name: nso-5.7.2.1.linux.x86_64.signed.bin
+# nso_java_opts: -Xmx2G -Xms1G
+# nso_package_list: 
+#     - ncs-5.4.4-cisco-ios-6.74.5.signed.bin
+#     - ncs-5.4.4-cisco-iosxr-7.33.20.signed.bin
+#     - ncs-5.4.4-cisco-nx-5.21.17.signed.bin
+
+#List of NEDs to load
+# NEDs:
+#   - name: cisco-ios
+#     version: 6.74.5
+#     targetNsoVersion: 5.4.4
+#   - name: cisco-nx
+#     version: 5.21.17
+#     targetNsoVersion: 5.4.4
+#   - name: cisco-iosxr
+#     version: 7.33.20
+#     targetNsoVersion: 5.4.4
+  # - name: cisco-asa
+  #   version: 6.10.2
+  #   targetNsoVersion: 5.4.4
+  # - name: resource-manager-project
+  #   version: 3.4.5
+  #   targetNsoVersion: 5.4.4
+
+#Local package upload
+remote_packages: False
+#Repository Data
+#Set needsCompiling to true if you wish your package to be compiled after the import.
+#Omit RepositoryURL if you don't want to install any service packages from a repository
+#A list of regex for local packages that need compilation, set to .* for no compiling
+compiled_packages: 
+    -".*iosxr.*"
+# RepositoryURL: wwwin-github.cisco.com/AS-Customer/Test-Nico-Interface-Project.git
+RepositoryBranch: master
+ServicePackagesPath: packages
+Packages:
+  - name: nico-interface-description-uppercase
+    needsCompiling: false
+
+
+#Netsim setup
+#If you are installing an HA setup, Netsim devices will only be launced on the primary host
+#but if SetupHA is not set, Netsim devices will be launched on every host of your inventory
+NetsimDevices:
+  - name: cisco-ios-cli-6.74
+    numberofDevices: 2
+    deviceNamePrefix: ios-
+  - name: cisco-iosxr-cli-7.33
+    numberofDevices: 2
+    deviceNamePrefix: iosxr-
+# #Directory where Netsim should be run
+NetsimDir: /var/opt/ncs/packages/ 
+
+#Location of initial config to load on NSO
+#Omit the variable if you don't need any
+#NSOInitialConfigLocation: /tmp/initial.xml
+
+# HA Setup
+# Parameters needed to setup HA on your NSO hosts (Should be used with two hosts in the inventory)
+
+SetupHA: true
+GET_REMOTE_HA_FILE: false
+# File should have the following syntax if added to file for upload
+# ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin
+HAImageLocation: '{{ playbook_dir }}/files/ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin'
+TailfHCCVersion: 5.*
+TailfHCCNSOVersion: 5.4.4
+PrimaryIP: 172.18.176.100
+SecondaryIP: 172.18.176.43
+VIP: 10.18.176.44
+# VIPNetMask: 255.255.255.128
+VIPInterfacePrimary: ens192
+VIPInterfaceSecondary: ens192
+HAToken: cisco123
+HAInterval: 4
+HAFailureLimit: 10

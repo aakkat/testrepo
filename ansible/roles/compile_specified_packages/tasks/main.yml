@@ -1,0 +1,31 @@
+- name: Find /var/opt/ncs/packages/ all directories
+  find:
+    paths: /var/opt/ncs/packages/
+    recurse: no
+    patterns: '{{ compiled_packages }}'
+    use_regex: true
+    file_type: directory
+  register: package_directories
+
+- debug:
+    var: package_directories
+- name: set package permissions
+  file:
+    path: "{{ item.path }}"
+    recurse: yes
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: ncsadmin
+  loop: "{{ package_directories.files }}"
+  become: yes
+
+- name: compile specified local packages
+  shell: make clean all
+  args:
+    chdir: "{{ item.path }}/src/"
+    warn: false
+  environment:
+    NCS_DIR: /opt/ncs/current
+  loop: "{{ package_directories.files }}"
+  ignore_errors: true
+  become: yes

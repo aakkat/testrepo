@@ -1,0 +1,71 @@
+- name: Check if there are running Netsim devices
+  stat:
+    path: "{{ NetsimDir }}netsim"
+  register: netsim_dir
+  become: yes
+- name: Stop and delete existing Netsim devices
+  shell: ncs-netsim delete-network >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    NCS_DIR: /opt/ncs/current
+  args:
+    chdir: "{{ NetsimDir }}"
+  when: netsim_dir.stat.exists
+  become: yes
+
+- name: Create Netsim Devices
+  shell: |
+    source /opt/ncs/current/ncsrc
+    ncs-netsim {{  "create-network" if item.name == NetsimDevices[0].name  else "add-to-network" }} {{item.name}} {{item.numberofDevices}} {{item.deviceNamePrefix}} >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: "{{ NetsimDir }}"
+    executable: /bin/bash
+  loop: "{{ NetsimDevices }}"
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes
+
+- name: Starting Netsim devices
+  shell: ncs-netsim start >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    NCS_DIR: /opt/ncs/current
+  args:
+    chdir: "{{ NetsimDir }}"
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes
+
+- name: Generating Netsim devices NSO config
+  shell: ncs-netsim ncs-xml-init > /home/{{ ansible_user }}/devices-config.xml 
+  args:
+    chdir: "{{ NetsimDir }}"
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    NCS_DIR: /opt/ncs/current
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes
+
+- name: Replacing localhost address with host IP in device config
+  replace:
+    path: /home/{{ ansible_user }}/devices-config.xml
+    regexp: '127.0.0.1'
+    replace: "{{ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0])}}"
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes
+
+- name: Load Netsim devices config
+  shell: ncs_load -l -m devices-config.xml >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: "/home/{{ ansible_user }}/"
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    NCS_DIR: /opt/ncs/current
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes
+
+- name: Executing sync-from Netsim devices
+  shell: echo 'devices device * sync-from' | ncs_cli -C >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+    NCS_DIR: /opt/ncs/current
+  when: SetupHA == false or ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) == PrimaryIP
+  become: yes

@@ -1,0 +1,112 @@
+---
+# tasks file for vmware_ubuntu_cloud_image
+- name: ping
+  shell: ping -c 3 "{{ static_ipv4 }}"
+  register: ping
+  ignore_errors: yes
+
+  
+- name: Creates directory
+  file:
+    path: /ova/
+    state: directory
+  when: ping.failed
+
+- name: Download ovf
+  get_url:
+    url: "{{ ova_url }}"
+    dest: "{{ ova_file }}"
+    # mode: '0440'
+  when: ping.failed
+
+- name: deploy OVA file
+  tags: deploy-ova
+  vmware_deploy_ovf:
+    hostname: "{{ vcenter_hostname | default(omit) }}"
+    username: "{{ vcenter_username | default(omit) }}"
+    password: "{{ vcenter_password | default(omit) }}"
+    validate_certs: "{{ vcenter_validate_certs | default(omit) }}"
+    datacenter: "{{ vmware_datacenter }}"
+    esxi_hostname: "{{ esxi_hostname }}"
+    datastore: "{{ vmware_datastore }}"
+    folder: "{{ vmware_folder | default(omit) }}"
+    resource_pool: "{{ vmware_resource_pool | default(omit) }}"
+    networks: "{{ vmware_networks | default(omit) }}"
+    allow_duplicates: no
+    ova: "{{ ova_file }}"
+    name: "{{ vm_guestname }}"
+    properties:
+      hostname: "{{ vm_hostname }}"
+      user-data: "{{ lookup('template', 'user-data.j2') | b64encode }}"
+    power_on: no
+  delegate_to: localhost
+  timeout: 1200
+  when: ping.failed
+
+- name: configure VM
+  tags: configure-vm
+  vmware_guest:
+    hostname: "{{ vcenter_hostname | default(omit) }}"
+    username: "{{ vcenter_username | default(omit) }}"
+    password: "{{ vcenter_password | default(omit) }}"
+    validate_certs: "{{ vcenter_validate_certs | default(omit) }}"
+    name: "{{ vm_guestname }}"
+    annotation: "{{ annotation | default(omit) }}"
+    hardware: "{{ hardware | default(omit) }}"
+    customvalues: "{{ customvalues | default(omit) }}"
+    state: present
+  delegate_to: localhost
+
+- name: configure disks
+  tags: configure-vm
+  vmware_guest_disk:
+    hostname: "{{ vcenter_hostname | default(omit) }}"
+    username: "{{ vcenter_username | default(omit) }}"
+    password: "{{ vcenter_password | default(omit) }}"
+    validate_certs: "{{ vcenter_validate_certs | default(omit) }}"
+    datacenter: "{{ vmware_datacenter }}"
+    name: "{{ vm_guestname }}"
+    disk: "{{ disk | default(omit) }}"
+  delegate_to: localhost
+
+- name: start VM
+  tags: start-vm
+  vmware_guest:
+    hostname: "{{ vcenter_hostname | default(omit) }}"
+    username: "{{ vcenter_username | default(omit) }}"
+    password: "{{ vcenter_password | default(omit) }}"
+    validate_certs: "{{ vcenter_validate_certs | default(omit) }}"
+    name: "{{ vm_guestname }}"
+    state: poweredon
+    wait_for_ip_address: yes
+  delegate_to: localhost
+  when: ping.failed
+
+- name: Validating if the WebServer is UP and OPENED the PORT
+  wait_for:
+      host: "{{ static_ipv4 }}"
+      port: 22
+      state: started
+      msg: "WebServer PORT is not Listening"
+      timeout: 300
+      delay: 30
+  connection: local
+  register: result
+  when: ping.failed
+
+- name: Pause for 3 minutes for vms to come up
+  pause:
+    minutes: 3
+  when: ping.failed
+  
+- name: get time from localhost
+  local_action: shell date
+  register: current_date
+
+- name: set connection vars
+  set_fact:
+    ansible_connection: ssh
+    ansible_host: "{{ static_ip.ipv4 }}"
+
+- name: set time to guest vm
+  shell: sudo date -s "{{ current_date.stdout }}"

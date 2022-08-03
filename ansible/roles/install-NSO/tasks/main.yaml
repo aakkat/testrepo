@@ -1,0 +1,170 @@
+- name: set logfile permissions
+  file:
+    path: /tmp/aNSOble.log
+    state: touch
+    mode: 0777
+  become: yes
+- name: Create NSO admin group
+  group:
+    name: ncsadmin
+    state: present
+  become: true
+
+- name: Adding users to the ncsadmin group
+  user:
+    name: "{{ item }}" 
+    groups: ncsadmin
+    append: yes
+  become: true
+  when: ncsadminUsers is defined 
+  loop: "{{ ncsadminUsers }}"
+
+- name: Create NSO oper group
+  group:
+    name: ncsoper
+    state: present
+  become: true
+
+- name: Adding users to the ncsoper group
+  user:
+    name: "{{ item }}" 
+    groups: ncsoper
+    append: yes
+  become: true
+  when: ncsoperUsers is defined
+  loop: " {{ ncsoperUsers }} "
+
+- name: Check if NSO is already installed
+  stat:
+    path: /opt/ncs/current/
+  become: true
+  register: ncs_current_dir
+
+- name: Download NSO install file (Remote copy)
+  get_url:
+    url: "{{ NSOImageLocation }}" 
+    dest: /tmp/NSO.bin
+    mode: '640'
+  when: NSOCopyType == 'remote' and ncs_current_dir.stat.exists == False
+
+- name: Copy NSO install file (Local copy)
+  copy:
+    src: "{{ NSOImageLocation }}" 
+    dest: /tmp/NSO.bin
+    mode: '740'
+  when: NSOCopyType == 'local' and ncs_current_dir.stat.exists == False
+  become: yes
+
+- name: Unpack NSO install file
+  shell: sh /tmp/NSO.bin >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+  when: ncs_current_dir.stat.exists == False
+  become: yes
+
+- name: Perfom NSO system install
+  shell: eval "/tmp/$(sed -e s/\ /\\n/g aNSOble.log | grep bin | tail -1) --system-install --non-interactive" >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+  become: true
+  when: ncs_current_dir.stat.exists == False
+
+- name: Making sure /var/opt/ncs is accessible to all users
+  file:
+    path: /var/opt/ncs
+    state: directory
+    recurse: yes
+    mode: '0755'
+  become: yes
+  when: ncs_current_dir.stat.exists == False
+
+- name: Changing /var/opt/ncs/packages ownership to {{ ansible_user }} user
+  file:
+    path: /var/opt/ncs/packages
+    state: directory
+    recurse: yes
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: ncsadmin
+  become: yes
+  when: ncs_current_dir.stat.exists == False
+
+- name: Changing /opt/ncs ownership to {{ ansible_user }} user
+  file:
+    path: /opt/ncs
+    state: directory
+    recurse: yes
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: ncsadmin
+  become: yes
+  when: ncs_current_dir.stat.exists == False
+
+- name: Store ncs.conf into ./configs/HOSTNAME/etc/ncs/ncs.conf
+  ansible.builtin.fetch:
+    src: /etc/ncs/ncs.conf
+    dest: /tmp/configs
+  become: yes
+  register: filename
+
+- name: Run python script on downloaded ncs.conf
+  local_action: command ./parse_configs.py --filepath {{filename.dest}}
+  
+- name: Copy NSO install file (Local copy)
+  copy:
+    src: "{{filename.dest}}" 
+    dest: /etc/ncs/ncs.conf
+    mode: '740'
+  become: yes
+
+- name: Remove file (delete file)
+  ansible.builtin.file:
+    path: "{{filename.dest}}"
+    state: absent
+
+- name: Start NSO service
+  shell: |
+    source /etc/profile.d/ncs.sh
+    /etc/init.d/ncs start >> /tmp/aNSOble.log 2>&1
+  become: true
+  when: ncs_current_dir.stat.exists == "False" and start-with-package-reload == "False"
+
+- name: Start NSO service with package-reload
+  shell: |
+    source /etc/profile.d/ncs.sh
+    /etc/init.d/ncs start --with-package-reload >> /tmp/aNSOble.log 2>&1
+  become: true
+  when: ncs_current_dir.stat.exists == "False" and start-with-package-reload == "True"
+
+- name: Creating the default authgroup file from template
+  template:
+    src: authgroup.j2 
+    dest: /home/{{ ansible_user }}/authgroup.xml
+  become: yes
+
+- name: Load default authgroup
+  shell: ncs_load -l -m /home/{{ ansible_user }}/authgroup.xml >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  become: yes
+
+- name: Reboot immediately if there was a change.
+  shell: "reboot"
+  async: 1
+  poll: 0
+  when: ncs_current_dir.stat.exists == False
+  become: yes
+
+- name: Pause for 2 minutes for vms to come back up
+  pause:
+    minutes: 2
+  when: ncs_current_dir.stat.exists == False
+
+- name: Wait for the reboot to complete if there was a change.
+  wait_for_connection:
+    connect_timeout: 20
+    sleep: 5
+    delay: 5
+    timeout: 300
+  when: ncs_current_dir.stat.exists == False
+  become: yes

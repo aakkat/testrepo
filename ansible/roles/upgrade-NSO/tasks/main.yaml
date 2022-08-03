@@ -1,0 +1,81 @@
+- name: set logfile permissions
+  file:
+    path: /tmp/aNSOble.log
+    state: touch
+    mode: 0777
+  become: yes
+
+- name: Check for upgrade version directory in /opt/ncs/
+  shell: ls -d ncs-{{ ncs_upgrade_version }} | cut -c5-20
+  args:
+    chdir: /opt/ncs/
+  register: upgrade_dir_name
+
+- set_fact:
+    new_ncs_dir_not_present: '{{upgrade_dir_name is defined and not (upgrade_dir_name.stdout_lines|length>0)}}'
+
+- debug:
+    msg: "NSO Version {{ncs_upgrade_version}} not found {{new_ncs_already_uploaded}}"
+  when: upgrade_dir_name is defined and not (upgrade_dir_name.stdout_lines|length>0)
+
+- set_fact:
+    compact_needed: false
+
+- name: check nso version to determine if compact is needed
+  include_tasks: compact_needed.yml
+
+- name: set ncs_cli permissions
+  include_role:
+    name: add_user_to_NCSCLI
+
+- name: disable ha
+  include_role:
+    name: enable_disable_HA
+  vars:
+    mode: disable
+
+- name: backup_restore_NSO
+  include_role:
+    name: backup_restore_NSO
+  vars:
+    mode: backup
+  when: false
+
+- name: Stop NCS process to upgrade
+  shell: ncs --stop >> /tmp/aNSOble.log
+  environment:
+        PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  ignore_errors: yes
+
+- name: Upload and unpack nso file
+  include_tasks: upload_and_unpack_nso.yml
+  when: new_ncs_dir_not_present
+
+- name: set file privs
+  include_tasks: set_priv.yml
+
+- name: Change current directory in /opt/ncs/
+  include_tasks: change_current_dir.yml
+
+- name: Alter NCS conf to new version
+  include_tasks: ncs_conf.yml
+
+- name: extract all tar files in /var/opt/ncs/packages
+  include_tasks: extract_tar.yml
+
+- name: Run compile on all packages
+  include_role:
+    name: compile_specified_packages
+  vars:
+    compiled_packages: [".*"]
+
+- name: Start NSO service
+  include_role:
+    name: start_NSO
+
+- name: run cdb compact if 4.x -> 5.x+
+  include_role:
+    name: compact_CDB
+  when: compact_needed
+
+  

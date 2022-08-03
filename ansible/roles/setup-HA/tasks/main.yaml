@@ -1,0 +1,150 @@
+- name: set logfile permissions
+  file:
+    path: /tmp/aNSOble.log
+    state: touch
+    mode: 0777
+  become: yes
+- name: determine NSO version
+  shell:  ncs --version
+  register: out1
+
+- shell: echo "{{out1.stdout}}" | cut -c1-3
+  register: out2
+- debug:
+     msg: "version is {{out2}}"
+- set_fact:
+        NSO_VER: "{{out2.stdout|float}}"
+- debug:
+      msg: "version is {{NSO_VER}}"
+- set_fact:
+      HA_CMD: "ha"
+- set_fact:
+      HA_CMD: "high-availability"
+  when: ( NSO_VER|float >= 5.4 )
+
+- name: Downloading Tailf-HCC-Project from the earth repo
+  shell: wget -k -O ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin --secure-protocol=TLSv1 -v --no-check-certificate --user {{ NEDsRepoUser }} --password {{ NEDsRepoPass }} https://earth.tail-f.com:8443/ncs-pkgs/tailf-hcc-project/{{ TailfHCCNSOVersion }}/ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+    warn: false
+  when: GET_REMOTE_HA_FILE
+
+- name: upload Tailf-HCC-Project from file directory
+  copy:
+    src: "{{ item }}" 
+    dest: /tmp/
+    mode: '755'
+  when: GET_REMOTE_HA_FILE == false
+  with_fileglob:
+    - "{{ HAImageLocation }}" 
+
+- name: Executing unpacking of signed Tailf-HCC-Project
+  shell: |
+    chmod 0755 ./ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin >> /tmp/aNSOble.log 2>&1
+    ./ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.signed.bin >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+    warn: false
+  
+
+- name: Unpacking Tailf-HCC-Project into /tmp
+  shell: tar zxvf ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}.tar.gz -C /tmp >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: /tmp/
+    warn: false
+  become: yes  
+
+- name: get directory name with wildcard
+  shell: ls -d /tmp/ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-project-{{ TailfHCCVersion }}/packages
+  register: dir_name
+  
+
+- name: Unpacking Tailf-HCC into /var/opt/ncs/packages
+  shell: tar zxvf ncs-{{ TailfHCCNSOVersion }}-tailf-hcc-{{ TailfHCCVersion }}.tar.gz -C /var/opt/ncs/packages >> /tmp/aNSOble.log 2>&1
+  args:
+    chdir: "{{ dir_name.stdout }}"
+    warn: false
+  become: true
+
+- name: Reloading NSO packages
+  shell: |
+    source /opt/ncs/current/ncsrc
+    echo 'packages reload' | ncs_cli -C >> /tmp/aNSOble.log 2>&1
+    echo 'packages reload complete' >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  
+
+- name: Addition of primary and secondary entries in /etc/hosts 
+  blockinfile:
+    path: /etc/hosts
+    marker: "## {mark} Added by ansible (setting up hosts)"
+    block: |
+      {{ PrimaryIP }} primary
+      {{ SecondaryIP }} secondary
+  become: true
+
+- name: Setup of HA as Enabled in /etc/ncs/ncs.conf 
+  blockinfile:
+    path: /etc/ncs/ncs.conf
+    marker: "<!-- {mark} Added by ansible (setting up hosts) -->"
+    insertbefore: "</ncs-config>"
+    block: |
+        <ha>
+          <enabled>true</enabled>
+        </ha>
+  become: true
+
+- name: Restart NSO service
+  shell: |
+    source /etc/profile.d/ncs.sh
+    /etc/init.d/ncs restart >> /tmp/aNSOble.log 2>&1
+  become: true
+
+- name: Creating the HA config file from template version 5.4 and above
+  template:
+    src: highavailability.j2
+    dest: /home/{{ ansible_user }}/ha.xml
+  when: ( NSO_VER|float >= 5.4 )
+  
+
+- name: Creating the HA config file from template versions prior to 5.4
+  template:
+    src: ha.j2
+    dest: /home/{{ ansible_user }}/ha.xml
+  when: ( NSO_VER|float <= 5.3 )
+  
+
+- name: Creating the HA HCC config file from template version 5.4 and above
+  template:
+    src: hcc54.j2
+    dest: /home/{{ ansible_user }}/hcc.xml
+  when: ( NSO_VER|float >= 5.4 )
+  
+
+- name: Creating the HA HCC config file from template versions prior to 5.4
+  template:
+    src: hcc53.j2
+    dest: /home/{{ ansible_user }}/hcc.xml
+  when: ( NSO_VER|float <= 5.3 )
+  
+
+- name: Loading HA config
+  shell: ncs_load -l -m ha.xml >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  
+
+- name: Loading HCC config
+  shell: ncs_load -l -m hcc.xml >> /tmp/aNSOble.log 2>&1
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}
+  
+
+- name: Activating HA
+  shell: |
+    source /opt/ncs/current/ncsrc
+    echo 'request ha commands activate' | ncs_cli >> /tmp/aNSOble.log 2>&1 
+  environment:
+    PATH: /opt/ncs/current/bin:{{ ansible_env.PATH }}  
+  
