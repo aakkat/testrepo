@@ -2,8 +2,7 @@
   register: output
 - set_fact:
        HOST: "{{output.stdout}}"
-- debug:
-     msg: "{{HOST}}"
+- debug: msg="{{HOST}}"
 - block:
   - name: Create Directory {{LOG_DIR}}/logs_{{HOST}} on remote server {{ansible_hostname}}
     file:
